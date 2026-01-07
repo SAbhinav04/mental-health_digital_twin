@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Twin | Advanced Mental Health Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --gradient-start: #000428;
+            --gradient-end: #004e92;
+            --card-bg: rgba(15, 23, 42, 0.7);
+            --border-color: rgba(71, 85, 105, 0.6);
+            --cyan-accent: #22d3ee;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            color: #e2e8f0;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .glass-card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        .glass-input {
+            background-color: rgba(30, 41, 59, 0.7);
+            border-color: rgba(71, 85, 105, 0.5);
+        }
+
+        .btn-primary {
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 15px rgba(34, 211, 238, 0.3);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 20px rgba(34, 211, 238, 0.5);
+        }
+        .btn-secondary {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn-secondary:hover {
+            transform: translateY(-1px) scale(1.01);
+            background-color: #475569;
+        }
+        .btn-ghost {
+            transition: all 0.2s ease-in-out;
+            border-color: rgba(71, 85, 105, 0.8);
+        }
+        .btn-ghost:hover {
+            background-color: rgba(71, 85, 105, 0.2);
+            border-color: var(--cyan-accent);
+            color: var(--cyan-accent);
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--cyan-accent);
+            box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.5);
+        }
+        
+        #severityDisplay {
+            transition: background-image 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+        
+        .severity-default { 
+            border-color: rgba(71, 85, 105, 0.6); 
+            background-image: none;
+        }
+
+        .severity-minimal { 
+            border-color: rgba(74, 222, 128, 0.4); 
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.2);
+            background-image: radial-gradient(circle at 50% 50%, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0) 70%);
+        }
+        .severity-mild { 
+            border-color: rgba(250, 204, 21, 0.4); 
+            box-shadow: 0 0 20px rgba(250, 204, 21, 0.2);
+            background-image: radial-gradient(circle at 50% 50%, rgba(234, 179, 8, 0.15) 0%, rgba(234, 179, 8, 0) 70%);
+        }
+        .severity-moderate { 
+            border-color: rgba(251, 146, 60, 0.4); 
+            box-shadow: 0 0 20px rgba(251, 146, 60, 0.2);
+            background-image: radial-gradient(circle at 50% 50%, rgba(249, 115, 22, 0.2) 0%, rgba(249, 115, 22, 0) 70%);
+        }
+        .severity-severe { 
+            border-color: rgba(248, 113, 113, 0.4); 
+            box-shadow: 0 0 25px rgba(248, 113, 113, 0.25);
+            background-image: radial-gradient(circle at 50% 50%, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0) 70%);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-start justify-center p-4 lg:p-6">
+    <div class="w-full max-w-6xl glass-card rounded-2xl p-8 mt-10">
+        <header class="text-center mb-10 pb-5 border-b border-slate-700/50">
+            <h1 class="text-4xl font-extrabold text-slate-50 tracking-tight leading-tight">Digital Twin AI</h1>
+            <p class="mt-2 text-xl text-cyan-400 font-medium">Predictive Mental Wellness Platform</p>
+        </header>
+        <div class="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <label for="userSelect" class="font-medium text-slate-400">Profile:</label>
+                <select id="userSelect" class="p-2 border rounded-lg shadow-sm font-semibold w-full md:w-auto glass-input text-slate-200 focus:ring-2 focus:ring-cyan-500 transition-all duration-200"></select>
+            </div>
+            <div id="statusMessage" class="hidden p-3 rounded-lg text-sm font-medium border w-full md:w-auto transition-all duration-300" role="alert"></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 space-y-6">
+                <div class="p-6 glass-card rounded-xl">
+                    <h2 class="text-lg font-semibold text-slate-300 mb-4">Current AI Analysis for <span id="currentUserDisplay" class="font-bold text-slate-100">User</span></h2>
+                    <div id="severityDisplay" class="h-40 flex flex-col items-center justify-center rounded-lg severity-default border-2">
+                        <p class="text-xl font-medium text-slate-400">Predicted State</p>
+                        <p id="severityText" class="mt-1 text-5xl font-bold text-slate-50 tracking-wider">--</p>
+                    </div>
+                    <div class="mt-4 text-center">
+                        <p id="interpretationText" class="text-slate-400 italic text-sm">Select a profile and log data to enable predictive insights.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button id="predictBtn" class="flex items-center justify-center gap-2 w-full px-6 py-3 bg-cyan-600 btn-primary text-white font-bold rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7 2a1 1 0 00-.707 1.707L8.586 6H6a2 2 0 00-2 2v6a2 2 0 002 2h8a2 2 0 002-2V8a2 2 0 00-2-2h-2.586l2.293-2.293A1 1 0 0013 2H7zm2 12a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg><span>Run Predictive Analysis</span></button>
+                    <button id="reportBtn" class="flex items-center justify-center gap-2 w-full px-4 py-3 bg-slate-700 btn-secondary text-white font-semibold rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd" /></svg><span>Generate Comprehensive Report</span></button>
+                </div>
+                <div class="p-6 glass-card rounded-xl">
+                    <h2 class="text-lg font-semibold text-slate-300 mb-3 pb-2 border-b border-slate-700/50">Long-Term Mental Wellness Trend</h2>
+                    <div class="relative h-96">
+                        <canvas id="gad7Chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="lg:col-span-1 space-y-6">
+                <div class="p-6 bg-cyan-900/10 rounded-xl border border-cyan-800/20">
+                    <h2 class="text-lg font-semibold text-cyan-300 mb-4 pb-2 border-b border-cyan-800/20">Input Daily Metrics</h2>
+                    <form id="manualInputForm" class="space-y-3">
+                        <textarea name="mood_log" placeholder="Describe your day, feelings, and experiences..." required class="w-full p-3 glass-input text-slate-200 rounded-md h-20 text-base focus:ring-2 focus:ring-cyan-500 transition-all duration-200"></textarea>
+                        <div class="relative"><div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div><input type="number" step="1" name="steps" placeholder="Steps Walked" required class="w-full p-3 pl-10 glass-input text-slate-200 rounded-md focus:ring-2 focus:ring-cyan-500 transition-all duration-200"></div>
+                        <div class="relative"><div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg></div><input type="number" step="0.1" name="sleep_duration" placeholder="Sleep Duration (hours)" required class="w-full p-3 pl-10 glass-input text-slate-200 rounded-md focus:ring-2 focus:ring-cyan-500 transition-all duration-200"></div>
+                        <div class="relative"><div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3.5a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0V4.25A.75.75 0 0110 3.5zM10 8.5a.75.75 0 01.75.75v5a.75.75 0 01-1.5 0V9.25A.75.75 0 0110 8.5zM7.25 6a.75.75 0 00-1.5 0v8a.75.75 0 001.5 0V6zM12.75 5a.75.75 0 00-1.5 0v10a.75.75 0 001.5 0V5zM4.75 8a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0V8zM15.25 7a.75.75 0 00-1.5 0v6a.75.75 0 001.5 0V7z" /></svg></div><input type="number" step="0.1" name="audio_level" placeholder="Avg. Audio Level (dB)" required class="w-full p-3 pl-10 glass-input text-slate-200 rounded-md focus:ring-2 focus:ring-cyan-500 transition-all duration-200"></div>
+                        <div class="relative"><div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg></div><input type="number" step="0.1" name="hrv" placeholder="Heart Rate Variability (ms)" required class="w-full p-3 pl-10 glass-input text-slate-200 rounded-md focus:ring-2 focus:ring-cyan-500 transition-all duration-200"></div>
+                        <div class="relative"><div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A8 8 0 0117.657 18.657z" /><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" /></svg></div><input type="number" step="0.1" name="bp_systolic" placeholder="BP Systolic" required class="w-full p-3 pl-10 glass-input text-slate-200 rounded-md focus:ring-2 focus:ring-cyan-500 transition-all duration-200"></div>
+                        <div class="relative"><div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A8 8 0 0117.657 18.657z" /><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" /></svg></div><input type="number" step="0.1" name="bp_diastolic" placeholder="BP Diastolic" required class="w-full p-3 pl-10 glass-input text-slate-200 rounded-md focus:ring-2 focus:ring-cyan-500 transition-all duration-200"></div>
+                        <button type="submit" class="w-full px-4 py-3 bg-cyan-600 btn-primary text-white font-bold rounded-lg">Submit Daily Log</button>
+                    </form>
+                    <button id="simulateBtn" class="w-full mt-3 px-4 py-3 btn-ghost text-slate-400 font-semibold rounded-lg border">(Dev) Simulate 10 Data Points</button>
+                </div>
+                <div class="p-6 glass-card rounded-xl">
+                    <h2 class="text-lg font-semibold text-slate-300 mb-4">Latest Insights</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-3 glass-input rounded-lg"><div class="flex items-center gap-2"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5.002L10 18.451l7.834-13.449A11.954 11.954 0 0110 1.944zM8 8a2 2 0 114 0 2 2 0 01-4 0z" clip-rule="evenodd" /></svg><span class="text-slate-400 font-medium">Prediction Confidence</span></div><span id="confidenceValue" class="text-lg font-bold text-cyan-400">--</span></div>
+                        <div class="flex justify-between items-center p-3 glass-input rounded-lg"><div class="flex items-center gap-2"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" /></svg><span class="text-slate-400 font-medium">Estimated GAD-7 Score</span></div><span id="gad7Value" class="text-lg font-bold text-slate-100">--</span></div>
+                        <div class="flex justify-between items-center p-3 glass-input rounded-lg"><div class="flex items-center gap-2"><svg class="h-5 w-5 text-slate-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg><span class="text-slate-400 font-medium">Last Analysis Time</span></div><span id="timestampValue" class="text-sm text-slate-400">--</span></div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-700/50">
+                        <h3 class="text-md font-semibold text-slate-300 mb-2">Recent Activity Log</h3>
+                        <table class="min-w-full text-sm text-slate-300">
+                            <thead><tr class="text-left text-slate-400 border-b border-slate-700/50"><th class="py-2 font-medium">Time</th><th class="font-medium">Steps</th><th class="font-medium">HRV</th><th class="font-medium">Mood Summary</th></tr></thead>
+                            <tbody id="latestDataTable"><tr><td colspan="4" class="py-2 text-center text-slate-500">No recent entries.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const API_BASE_URL = window.location.origin + '/api';
+        let gad7ChartInstance = null;
+        let selectedUserId = 'user1_data_baseline';
+        const verticalLinePlugin = {
+            id: 'verticalLine',
+            afterDraw: chart => {
+                if (chart.tooltip?._active?.length) {
+                    let x = chart.tooltip._active[0].element.x;
+                    let yAxis = chart.scales.y;
+                    let ctx = chart.ctx;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(x, yAxis.top);
+                    ctx.lineTo(x, yAxis.bottom);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(100, 116, 139, 0.7)';
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        };
+        Chart.register(verticalLinePlugin);
+        async function initChart() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/history/${selectedUserId}`);
+                if (!response.ok) throw new Error(`Failed to fetch chart data: ${response.status} ${response.statusText}`);
+                const chartData = await response.json();
+                if (!chartData || !Array.isArray(chartData.labels) || !Array.isArray(chartData.gad7_scores)) {
+                    throw new Error("Received invalid data format for chart.");
+                }
+                const chartContainer = document.getElementById('gad7Chart').parentNode;
+                if (!chartContainer.querySelector('canvas')) chartContainer.innerHTML = '<canvas id="gad7Chart"></canvas>';
+                const ctx = document.getElementById('gad7Chart').getContext('2d');
+                const backgroundColors = chartData.severities.map(s => getSeverityColor(s));
+                const data = {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'GAD-7 Score',
+                        data: chartData.gad7_scores,
+                        borderColor: '#22d3ee',
+                        borderWidth: 2.5,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: backgroundColors,
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: (context) => {
+                            const {ctx, chartArea} = context.chart;
+                            if (!chartArea) return null;
+                            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                            gradient.addColorStop(0, 'rgba(34, 211, 238, 0)');
+                            gradient.addColorStop(1, 'rgba(34, 211, 238, 0.3)');
+                            return gradient;
+                        },
+                    }]
+                };
+                const options = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 21,
+                            grid: {
+                                color: 'rgba(71, 85, 105, 0.2)'
+                            },
+                            ticks: {
+                                stepSize: 5,
+                                color: '#94a3b8'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false,
+                            position: 'nearest',
+                            backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                            titleColor: '#e2e8f0',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(71, 85, 105, 0.5)',
+                            borderWidth: 1,
+                            cornerRadius: 6,
+                            displayColors: false,
+                            callbacks: {
+                                label: (context) => `Score: ${context.raw} | Severity: ${chartData.severities[context.dataIndex]}`
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                };
+                if (gad7ChartInstance) gad7ChartInstance.destroy();
+                gad7ChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: options
+                });
+            } catch (error) {
+                console.error("Error in initChart():", error);
+                document.getElementById('gad7Chart').parentNode.innerHTML = `<div class="text-center text-red-400 p-8">Error loading chart: ${error.message}. Check console for details.</div>`;
+            }
+        }
+        function applySeverityStyle(severity) {
+            const display = document.getElementById('severityDisplay');
+            const severityClass = 'severity-' + String(severity).toLowerCase();
+            display.classList.remove('severity-default', 'severity-minimal', 'severity-mild', 'severity-moderate', 'severity-severe');
+            display.classList.add(severityClass);
+        }
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `p-3 rounded-lg text-sm font-medium border block w-full md:w-auto text-center transition-all duration-300`;
+            if (type === 'success') {
+                statusDiv.classList.add('bg-green-900/50', 'text-green-300', 'border-green-700', 'shadow-lg');
+            } else if (type === 'error') {
+                statusDiv.classList.add('bg-red-900/50', 'text-red-300', 'border-red-700', 'shadow-lg');
+            } else {
+                statusDiv.classList.add('bg-blue-900/50', 'text-blue-300', 'border-blue-700', 'shadow-lg');
+            }
+            statusDiv.classList.remove('hidden');
+        }
+        function getSeverityColor(severity) {
+            switch (String(severity).toUpperCase()) {
+                case 'MINIMAL':
+                    return '#4ade80';
+                case 'MILD':
+                    return '#facc15';
+                case 'MODERATE':
+                    return '#fb923c';
+                case 'SEVERE':
+                    return '#f87171';
+                default:
+                    return '#64748b';
+            }
+        }
+        async function fetchLatestData() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/latest_data/${selectedUserId}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                const tableBody = document.getElementById('latestDataTable');
+                tableBody.innerHTML = '';
+                if (data.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="4" class="py-2 text-center text-slate-500">No recent entries.</td></tr>';
+                    return;
+                }
+                data.forEach(point => {
+                    let timestamp;
+                    try {
+                        if (point.timestamp && !isNaN(point.timestamp)) {
+                            timestamp = new Date(point.timestamp * 1000).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        } else {
+                            timestamp = '--';
+                        }
+                    } catch (e) {
+                        timestamp = '--';
+                    }
+                    const mood = point.mood_log && typeof point.mood_log === 'string' ? (point.mood_log.length > 25 ? point.mood_log.substring(0, 25) + '...' : point.mood_log) : '--';
+                    const row = tableBody.insertRow();
+                    row.className = 'border-b border-slate-800 last:border-b-0 hover:bg-slate-800/50 transition-colors duration-150';
+                    row.insertCell().textContent = timestamp;
+                    row.insertCell().textContent = point.steps?.toFixed(0) || '--';
+                    row.insertCell().textContent = point.hrv?.toFixed(0) || '--';
+                    row.insertCell().textContent = mood;
+                });
+            } catch (error) {
+                console.error("Error fetching latest data:", error);
+            }
+        }
+        async function populateUsers() {
+            try {
+                const userSelect = document.getElementById('userSelect');
+                const response = await fetch(API_BASE_URL + '/user_profiles');
+                if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+                const profiles = await response.json();
+                userSelect.innerHTML = '';
+                for (const [id, description] of Object.entries(profiles)) {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = description;
+                    userSelect.appendChild(option);
+                }
+                selectedUserId = userSelect.value || 'user1_data_baseline';
+                document.getElementById('currentUserDisplay').textContent = userSelect.options[userSelect.selectedIndex].textContent;
+                userSelect.addEventListener('change', (e) => {
+                    selectedUserId = e.target.value;
+                    document.getElementById('currentUserDisplay').textContent = e.target.options[e.target.selectedIndex].textContent;
+                    document.getElementById('severityText').textContent = '--';
+                    document.getElementById('interpretationText').textContent = 'Loading personalized history...';
+                    fetchLatestData();
+                    initChart();
+                });
+                fetchLatestData();
+                initChart();
+            } catch (error) {
+                updateStatus(`Error loading profiles: ${error.message}. Is the server running?`, 'error');
+            }
+        }
+        document.getElementById('manualInputForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            data.user_id = selectedUserId;
+            for (const key in data) {
+                if (key !== 'mood_log' && key !== 'user_id') {
+                    data[key] = parseFloat(data[key]);
+                }
+            }
+            updateStatus(`Submitting new log...`, 'info');
+            try {
+                const response = await fetch(`${API_BASE_URL}/ingest_manual/${selectedUserId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) throw new Error(`Server responded with ${response.status} ${response.statusText}`);
+                const result = await response.json();
+                if (result.status === 'success') {
+                    updateStatus(result.message + ' Click "Run Predictive Analysis" to update.', 'success');
+                    fetchLatestData();
+                    initChart();
+                    form.reset();
+                } else {
+                    updateStatus('Error submitting log: ' + result.message, 'error');
+                }
+            } catch (error) {
+                updateStatus(`Network Error: ${error.message}`, 'error');
+            }
+        });
+        document.getElementById('simulateBtn').addEventListener('click', async () => {
+            updateStatus('Simulating 10 random data points...', 'info');
+            try {
+                const response = await fetch(API_BASE_URL + '/simulate', {
+                    method: 'POST'
+                });
+                if (!response.ok) throw new Error(`Server responded with ${response.status} ${response.statusText}`);
+                const data = await response.json();
+                if (data.status === 'success') {
+                    updateStatus(data.message + ' Click "Run Predictive Analysis" to see a new prediction.', 'success');
+                    if (selectedUserId !== 'user1_data_baseline') {
+                        selectedUserId = 'user1_data_baseline';
+                        document.getElementById('userSelect').value = 'user1_data_baseline';
+                        document.getElementById('currentUserDisplay').textContent = document.getElementById('userSelect').options[document.getElementById('userSelect').selectedIndex].textContent;
+                    }
+                    fetchLatestData();
+                    initChart();
+                } else {
+                    updateStatus('Error during simulation: ' + data.message, 'error');
+                }
+            } catch (error) {
+                updateStatus(`Network Error: ${error.message}`, 'error');
+            }
+        });
+        document.getElementById('predictBtn').addEventListener('click', async () => {
+            updateStatus(`Running predictive analysis...`, 'info');
+            document.getElementById('severityText').textContent = 'ANALYZING...';
+            try {
+                const response = await fetch(`${API_BASE_URL}/predict/${selectedUserId}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server Error: ${response.status} ${response.statusText}`);
+                }
+                const result = await response.json();
+                if (result.status === 'success') {
+                    const severity = result.severity.toUpperCase();
+                    document.getElementById('severityText').textContent = severity;
+                    document.getElementById('confidenceValue').textContent = result.confidence + '%';
+                    document.getElementById('gad7Value').textContent = result.gad7;
+                    document.getElementById('timestampValue').textContent = result.timestamp;
+                    applySeverityStyle(severity);
+                    let interpretation = "";
+                    if (severity === 'SEVERE') {
+                        interpretation = "Critical well-being alert: Significant stressors detected. Immediate professional support is highly recommended.";
+                    } else if (severity === 'MODERATE') {
+                        interpretation = "Elevated stress detected. Proactive self-care and professional consultation could be beneficial.";
+                    } else if (severity === 'MILD') {
+                        interpretation = "Minor stress indicators present. Maintain healthy routines and monitor for changes.";
+                    } else {
+                        interpretation = "Optimal well-being detected. Continue your positive routines for sustained mental health.";
+                    }
+                    document.getElementById('interpretationText').textContent = interpretation;
+                    updateStatus(`Analysis Complete! State: ${severity} (Confidence: ${result.confidence}%)`, 'success');
+                } else if (result.status === 'warning') {
+                    updateStatus('Note: ' + result.message, 'info');
+                    document.getElementById('severityText').textContent = '--';
+                } else {
+                    updateStatus('Prediction Error: ' + (result.message || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                updateStatus(error.message, 'error');
+                document.getElementById('severityText').textContent = 'ERROR';
+            }
+        });
+        document.getElementById('reportBtn').addEventListener('click', () => {
+            updateStatus('Generating your comprehensive report...', 'info');
+            window.location.href = `${API_BASE_URL}/report/${selectedUserId}`;
+            setTimeout(() => {
+                updateStatus('Your report was successfully generated. Check your downloads.', 'success');
+            }, 1500);
+        });
+        document.addEventListener('DOMContentLoaded', populateUsers);
+        setInterval(fetchLatestData, 10000);
+    </script>
+</body>
+</html>

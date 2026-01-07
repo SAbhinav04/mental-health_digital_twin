@@ -1,0 +1,11 @@
+pandas
+numpy
+
+
+xgboost
+scikit-learn
+joblib
+
+
+influxdb3-python
+
