@@ -1,22 +1,23 @@
---- Environment Folders ---
+# --- Environment Folders ---
 venv/
 .venv/
-pycache/
+__pycache__/
 
---- Local Operating System and IDE Files ---
+# --- Local Operating System and IDE Files ---
 .DS_Store
 *.swp
 .vscode/
 
---- Generated Data and Models (CRITICAL to ignore for collaboration) ---
-Each team member generates these locally based on the source code.
+# --- Generated Data and Models (CRITICAL to ignore for collaboration) ---
+# Each team member generates these locally based on the source code.
 *.db
 *.pkl
 *.csv
-/realtime_data.db
-/mental_twin_xgb_model.pkl
-/processed_mental_twin_data.csv
 
---- Generated Reports ---
-These are the dynamic outputs of the project.
+# --- Explicit paths (redundant but safe) ---
+realtime_data.db
+mental_twin_xgb_model.pkl
+processed_mental_twin_data.csv
+
+# --- Generated Reports ---
 clinical_summary_report*.md
