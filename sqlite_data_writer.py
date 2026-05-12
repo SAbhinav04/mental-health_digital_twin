@@ -105,7 +105,6 @@ def get_latest_data(user_id='user1_data_baseline', limit=5):
     try:
         conn = sqlite3.connect(DATABASE_NAME)
         df = pd.read_sql_query(f"SELECT * FROM {TABLE_NAME} WHERE user_id = ? ORDER BY timestamp DESC LIMIT {limit};", conn, params=(user_id,))
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
         return df.to_dict('records')
     except Exception as e:
         logging.error(f"Error retrieving latest data: {e}")

@@ -227,7 +227,7 @@ def simulate_data_api():
     try:
         logging.info("API: Starting data simulation for user1_data_baseline...")
      
-        writer_module.write_single_data_point({'user_id': 'user1_data_baseline'})
+        writer_module.write_single_data_point(None)
         return jsonify({"status": "success", "message": "New simulated data points written."}), 200
     except Exception as e:
         logging.error(f"API Error during simulation: {e}")

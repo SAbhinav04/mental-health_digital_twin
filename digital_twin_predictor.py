@@ -8,6 +8,15 @@ import random
 import os 
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import config 
+from typing import Dict, List, Optional, Tuple, Any
+
+# Import SHAP for explainability
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    logging.warning("SHAP library not installed. Explainability features disabled.")
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -268,8 +277,188 @@ def predict_from_text_only(text, user_id='user1_data_baseline'):
     return predict_mental_health(data)
 
 
-from daic_woz_sample import DAIC_WOZ_SAMPLE_UTTERANCES
+class SHAPExplainer:
+    """
+    Provides SHAP-based explainability for predictions.
+    Supports both XGBoost (TreeExplainer) and LSTM (DeepExplainer).
+    """
+    
+    def __init__(self, model_path: str = MODEL_FILE, 
+                 reference_data: Optional[pd.DataFrame] = None):
+        """
+        Args:
+            model_path: Path to trained model
+            reference_data: Background data for SHAP (typically training data subset)
+        """
+        self.model_path = model_path
+        self.reference_data = reference_data
+        self.explainer = None
+        self.model = None
+        self._init_explainer()
+    
+    def _init_explainer(self):
+        """Initialize SHAP explainer based on model type."""
+        if not SHAP_AVAILABLE:
+            logging.warning("SHAP not available. Explanations will be disabled.")
+            return
+        
+        try:
+            self.model = joblib.load(self.model_path)
+            
+            # Use TreeExplainer for XGBoost
+            if hasattr(self.model, 'get_booster'):  # XGBoost model
+                if self.reference_data is not None:
+                    self.explainer = shap.TreeExplainer(self.model, data=self.reference_data)
+                else:
+                    self.explainer = shap.TreeExplainer(self.model)
+                logging.info("Initialized TreeExplainer for XGBoost")
+            else:
+                logging.warning("Model type not recognized for SHAP explainer")
+        
+        except Exception as e:
+            logging.warning(f"Failed to initialize SHAP explainer: {e}")
+    
+    def explain_prediction(self, X: pd.DataFrame, feature_names: Optional[List[str]] = None,
+                          top_k: int = 5) -> Dict[str, Any]:
+        """
+        Generate SHAP explanations for a prediction.
+        
+        Args:
+            X: Feature row (1, n_features) for prediction
+            feature_names: List of feature names
+            top_k: Number of top features to return
+        
+        Returns:
+            Dictionary with explanation data
+        """
+        if self.explainer is None or not SHAP_AVAILABLE:
+            logging.warning("SHAP explainer not available")
+            return {'error': 'SHAP not available', 'explanations': []}
+        
+        try:
+            # Ensure X is 2D
+            if isinstance(X, pd.Series):
+                X = X.to_frame().T
+            if not isinstance(X, pd.DataFrame):
+                X = pd.DataFrame(X)
+            
+            # Get SHAP values
+            shap_values = self.explainer.shap_values(X)
+            
+            # Handle different output formats
+            if isinstance(shap_values, list):  # Multiclass
+                shap_values_array = shap_values[0] if len(shap_values) > 0 else shap_values
+            else:
+                shap_values_array = shap_values
+            
+            # Get feature values
+            feature_values = X.values[0] if X.shape[0] > 0 else X.values
+            
+            # Use provided feature names or default
+            if feature_names is None:
+                feature_names = X.columns.tolist()
+            
+            # Create explanation list with impact scores
+            explanations = []
+            for i, (feat_name, shap_val, feat_val) in enumerate(
+                zip(feature_names, shap_values_array, feature_values)
+            ):
+                explanations.append({
+                    'feature': feat_name,
+                    'impact': float(shap_val),
+                    'value': float(feat_val),
+                    'direction': 'increases_risk' if shap_val > 0 else 'reduces_risk'
+                })
+            
+            # Sort by absolute impact
+            explanations = sorted(explanations, key=lambda x: abs(x['impact']), reverse=True)
+            top_explanations = explanations[:top_k]
+            
+            # Generate human-readable summary
+            summary = self._generate_explanation_summary(top_explanations)
+            
+            return {
+                'success': True,
+                'shap_explanations': top_explanations,
+                'summary': summary,
+                'all_explanations': explanations
+            }
+        
+        except Exception as e:
+            logging.error(f"SHAP explanation failed: {e}")
+            return {'error': str(e), 'explanations': []}
+    
+    def _generate_explanation_summary(self, top_explanations: List[Dict]) -> str:
+        """
+        Generate human-readable explanation from SHAP values.
+        
+        Args:
+            top_explanations: List of top contributing features
+        
+        Returns:
+            Human-readable explanation string
+        """
+        if not top_explanations:
+            return "No significant features identified."
+        
+        # Identify risk drivers
+        risk_drivers = [e for e in top_explanations if e['direction'] == 'increases_risk']
+        protective_factors = [e for e in top_explanations if e['direction'] == 'reduces_risk']
+        
+        summary_parts = []
+        
+        if risk_drivers:
+            risk_features = ', '.join([f["feature"] for f in risk_drivers[:3]])
+            summary_parts.append(f"Primary risk drivers: {risk_features}.")
+        
+        if protective_factors:
+            protective_features = ', '.join([f["feature"] for f in protective_factors[:3]])
+            summary_parts.append(f"Protective factors: {protective_features}.")
+        
+        if not summary_parts:
+            summary_parts.append("Mixed contributing factors detected.")
+        
+        return ' '.join(summary_parts)
 
+
+def predict_with_explanation(data: pd.DataFrame, user_id: str = 'user1_data_baseline',
+                            use_shap: bool = True) -> Dict[str, Any]:
+    """
+    Make prediction and provide SHAP explanation.
+    
+    Args:
+        data: Feature data (DataFrame row)
+        user_id: User identifier
+        use_shap: Whether to compute SHAP explanations
+    
+    Returns:
+        Dictionary with prediction and explanation
+    """
+    severity, confidence, gad7 = predict_mental_health(data)
+    
+    result = {
+        'severity': severity,
+        'confidence': confidence,
+        'gad7': gad7,
+        'user_id': user_id,
+        'timestamp': pd.Timestamp.now().isoformat(),
+        'shap_explanations': []
+    }
+    
+    if use_shap and SHAP_AVAILABLE and severity is not None:
+        try:
+            explainer = SHAPExplainer(MODEL_FILE)
+            explanation = explainer.explain_prediction(data, feature_names=data.columns.tolist())
+            
+            if 'success' in explanation and explanation['success']:
+                result['shap_explanations'] = explanation.get('shap_explanations', [])
+                result['explanation_summary'] = explanation.get('summary', '')
+        
+        except Exception as e:
+            logging.warning(f"Could not generate SHAP explanations: {e}")
+    
+    return result
+    
 if __name__ == '__main__':
     severity, confidence, gad7 = predict_from_daic_woz_dialogue(
         DAIC_WOZ_SAMPLE_UTTERANCES

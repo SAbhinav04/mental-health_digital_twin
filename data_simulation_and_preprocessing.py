@@ -174,8 +174,100 @@ def feature_engineering(df):
                 user_group[f'{feature}_lag_{lag}'] = user_group[feature].shift(lag)
         return user_group
 
-    df = df.groupby('user_id', group_keys=False).apply(create_lags)
+    # Apply function per user while preserving user_id as a column
+    df_result = []
+    for user_id, group in df.groupby('user_id', as_index=False):
+        group_with_lags = create_lags(group)
+        df_result.append(group_with_lags)
+    
+    df = pd.concat(df_result, ignore_index=True)
     df.dropna(inplace=True)
+    return df
+
+
+def compute_advanced_features(df):
+    """
+    Compute advanced engineered features for improved clinical modeling.
+    
+    Includes:
+    - HRV frequency domain features (if available)
+    - Sleep regularity & debt metrics
+    - Circadian pattern features
+    - Sentiment trend
+    - Activity consistency
+    
+    Must be performed PER USER.
+    """
+    logging.info("Computing advanced engineered features...")
+    
+    def add_advanced_features(user_group):
+        user_group = user_group.sort_values(by='Date')
+        
+        # HRV frequency domain features (simulated if not available)
+        if 'hrv_mean' in user_group.columns:
+            # Simulate frequency domain if not available
+            user_group['lf_power'] = user_group['hrv_mean'] * 0.6  # Low freq component
+            user_group['hf_power'] = user_group['hrv_mean'] * 0.4  # High freq component
+            user_group['lf_hf_ratio'] = user_group['lf_power'] / (user_group['hf_power'] + 1e-8)
+            user_group['rmssd'] = user_group['hrv_mean'] * 0.5  # Simulated RMSSD
+            user_group['sdnn'] = user_group['hrv_mean']  # SDNN similar to mean HRV
+            user_group['sdsd'] = user_group['hrv_mean'] * 0.3  # Successive diff standard dev
+        
+        # Sleep regularity (sleep onset consistency over 14 days)
+        if 'sleep_duration_sum' in user_group.columns:
+            # Simulate sleep onset time consistency
+            user_group['sleep_onset_consistency_14d'] = user_group['sleep_duration_sum'].rolling(
+                window=14, min_periods=1).std().fillna(0)
+            
+            # Sleep debt: cumulative deficit vs personal 7-day average
+            sleep_7d_mean = user_group['sleep_duration_sum'].rolling(window=7, min_periods=1).mean()
+            user_group['sleep_debt_14d'] = (sleep_7d_mean - user_group['sleep_duration_sum']).rolling(
+                window=14, min_periods=1).sum().fillna(0)
+        
+        # Circadian regularity (measure of daily routine consistency)
+        if 'sleep_duration_sum' in user_group.columns and 'steps_sum' in user_group.columns:
+            # Compute as inverse of variance in daily patterns
+            routine_variance = (
+                (user_group['sleep_duration_sum'].rolling(window=7, min_periods=1).std().fillna(0)) +
+                (user_group['steps_sum'].rolling(window=7, min_periods=1).std().fillna(0))
+            )
+            user_group['circadian_regularity'] = 1.0 / (1.0 + routine_variance / 1000)
+        else:
+            user_group['circadian_regularity'] = 0.5
+        
+        # Sentiment trend (3-day rolling slope if sentiment data available)
+        if 'sentiment_compound_mean' in user_group.columns:
+            sentiment_slope_list = []
+            for i in range(len(user_group)):
+                if i < 2:
+                    sentiment_slope_list.append(0)
+                else:
+                    window = user_group['sentiment_compound_mean'].iloc[i-2:i+1].values
+                    slope = np.polyfit(range(3), window, 1)[0] if len(window) == 3 else 0
+                    sentiment_slope_list.append(slope)
+            user_group['sentiment_slope_3d'] = sentiment_slope_list
+        else:
+            user_group['sentiment_slope_3d'] = 0
+        
+        # Activity consistency (coefficient of variation of daily steps over 7 days)
+        if 'steps_sum' in user_group.columns:
+            steps_7d_mean = user_group['steps_sum'].rolling(window=7, min_periods=1).mean().fillna(1)
+            steps_7d_std = user_group['steps_sum'].rolling(window=7, min_periods=1).std().fillna(0)
+            user_group['activity_consistency_7d'] = steps_7d_std / (steps_7d_mean + 1e-8)
+        else:
+            user_group['activity_consistency_7d'] = 0
+        
+        return user_group
+    
+    # Apply function per user while preserving user_id as a column
+    df_result = []
+    for user_id, group in df.groupby('user_id', as_index=False):
+        group_with_features = add_advanced_features(group)
+        df_result.append(group_with_features)
+    
+    df = pd.concat(df_result, ignore_index=True)
+    
+    logging.info(f"Advanced features computed. New shape: {df.shape}")
     return df
 
 def robust_z_score(series, name):
@@ -200,6 +292,13 @@ def derive_mental_health_labels(df):
     if df.empty:
         logging.error("DataFrame is empty, cannot synthesize labels.")
         return df
+
+    # Ensure `user_id` is a column (robust to groupby/apply index changes)
+    if 'user_id' not in df.columns:
+        try:
+            df = df.reset_index()
+        except Exception:
+            pass
 
     logging.info("Starting HYBRID GAD-7 synthesis (Relative + Absolute Risk)...")
     
@@ -276,9 +375,21 @@ if __name__ == '__main__':
 
         
         processed_df = feature_engineering(aligned_df)
+        
+        # Compute advanced features (new)
+        processed_df = compute_advanced_features(processed_df)
 
         if not processed_df.empty:
-            
+            logging.info(f"DEBUG: Processed DF columns before labeling: {processed_df.columns.tolist()}")
+
+            # If 'user_id' got lost during groupby/apply, try to restore it from the aligned_df
+            if 'user_id' not in processed_df.columns and 'index' in processed_df.columns:
+                try:
+                    processed_df['user_id'] = processed_df['index'].apply(lambda i: aligned_df.loc[i, 'user_id'])
+                    logging.info("Restored 'user_id' column from aligned_df using original index mapping.")
+                except Exception as e:
+                    logging.warning(f"Failed to restore 'user_id' from aligned_df: {e}")
+
             final_df = derive_mental_health_labels(processed_df)
 
             

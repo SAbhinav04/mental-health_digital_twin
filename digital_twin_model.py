@@ -7,7 +7,18 @@ from sklearn.metrics import classification_report, accuracy_score
 import xgboost as xgb
 import logging
 import config
+import os
+import platform
 
+# Fix for multiple OpenMP runtimes crashing the process
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
+# Apple Silicon (M5) threading optimization
+if platform.system() == "Darwin" and platform.machine() == "arm64":
+    # Force single-threaded loading to bypass OpenMP initialization bugs
+    os.environ['OMP_NUM_THREADS'] = '1'
+    # Prevents XGBoost from conflicting with the Python 3.14 signal handlers
+    os.environ['XGBOOST_CURRENT_THREAD_CHECK'] = '0'
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -89,7 +100,7 @@ def train_xgb_model(df):
     present_classes = sorted(list(np.unique(np.concatenate((y_full_decoded, y_pred_full_decoded)))))
     
     logging.info("Classification Report:")
-    report = classification_report(y_full_decoded, y_pred_full_decoded, labels=le.transform(present_classes), target_names=present_classes, zero_division=0)
+    report = classification_report(y_full_decoded, y_pred_full_decoded, labels=present_classes, target_names=present_classes, zero_division=0)
     logging.info(report)
 
    

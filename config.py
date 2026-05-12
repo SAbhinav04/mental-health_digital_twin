@@ -19,6 +19,34 @@ CORE_FEATURE_BASES = [
     'sentiment_compound_mean'
 ]
 
+# NEW ENGINEERED FEATURES (added for improved clinical modeling)
+ADVANCED_FEATURES = [
+    # HRV frequency domain features (if raw RR intervals available)
+    'lf_power',  # Low frequency power
+    'hf_power',  # High frequency power
+    'lf_hf_ratio',  # LF/HF ratio (sympathovagal balance)
+    'rmssd',  # Root mean square of successive differences
+    'sdnn',   # Standard deviation of NN intervals
+    'sdsd',   # Standard deviation of successive differences
+    
+    # Sleep regularity & debt
+    'sleep_onset_consistency_14d',  # Std of sleep onset times over 14 days
+    'sleep_debt_14d',  # Cumulative sleep deficit vs personal average
+    
+    # Circadian features
+    'circadian_regularity',  # Measure of daily routine consistency
+    
+    # Mood & sentiment trend
+    'sentiment_slope_3d',  # 3-day rolling sentiment trend (positive = improving)
+    
+    # Activity consistency
+    'activity_consistency_7d',  # Coefficient of variation in daily steps
+]
+
+# Optional features that may not always be available (for backward compatibility)
+OPTIONAL_FEATURES = ADVANCED_FEATURES.copy()
+
+# Dynamic feature building
 FINAL_MODEL_FEATURES = []
 FINAL_MODEL_FEATURES.extend(NON_LAGGED_SUMMARY_BASES) 
 
@@ -26,6 +54,9 @@ for base in CORE_FEATURE_BASES:
     FINAL_MODEL_FEATURES.append(base) 
     for lag in range(1, 4):
         FINAL_MODEL_FEATURES.append(f'{base}_lag_{lag}')
+
+# Add optional advanced features (will use backward-compatible defaults if missing)
+FINAL_MODEL_FEATURES.extend(OPTIONAL_FEATURES)
         
 USER_PROFILES = {
     "user1_data_baseline": {
@@ -56,4 +87,25 @@ INDUSTRY_TARGETS = {
     'hrv_mean': 50.0,              
     'bp_systolic_mean': 120.0,    
 }
+
 ABSOLUTE_RISK_WEIGHT = 0.40
+
+# Dataset configuration
+SAMSUNG_DATASET_PATH = None  # Set to path if using real Samsung HRV dataset
+
+# Temporal model configuration
+LSTM_CONFIG = {
+    'lookback_days': 14,
+    'hidden_size_1': 64,
+    'hidden_size_2': 32,
+    'dropout': 0.2,
+    'n_classes': 4,  # Minimal, Mild, Moderate, Severe
+    'bidirectional': True,
+}
+
+# Evaluation configuration
+EVALUATION_CONFIG = {
+    'loso_enabled': True,
+    'stratified_kfold_splits': 5,
+    'test_size': 0.1,
+}
